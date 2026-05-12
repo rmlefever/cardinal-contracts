@@ -5,6 +5,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 const state = { clinics: [], templates: [], selected: null, pdf: null, page: 1, fields: [], scale: 1.2 };
 const $ = (id) => document.getElementById(id);
 
+$('adminToken').value = localStorage.getItem('cardinalAdminToken') || '';
+$('adminToken').addEventListener('change', async () => {
+  localStorage.setItem('cardinalAdminToken', $('adminToken').value);
+  await loadClinics();
+  await loadTemplates();
+});
+
 function headers() {
   return { Authorization: `Bearer ${$('adminToken').value}`, 'Content-Type': 'application/json' };
 }
