@@ -2,7 +2,7 @@ import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
 
-const state = { templates: [], selected: null, pdf: null, page: 1, fields: [], scale: 1.2 };
+const state = { clinics: [], templates: [], selected: null, pdf: null, page: 1, fields: [], scale: 1.2 };
 const $ = (id) => document.getElementById(id);
 
 function headers() {
@@ -26,8 +26,24 @@ document.querySelectorAll('.nav button').forEach((button) => {
   });
 });
 
+async function loadClinics() {
+  state.clinics = await api('/api/clinics', { headers: headers() });
+  const options = state.clinics.map((clinic) => `<option value="${clinic.id}">${clinic.name}</option>`).join('');
+  $('clinicFilter').innerHTML = options;
+  $('uploadClinic').innerHTML = options;
+  $('sendClinic').innerHTML = options;
+  $('clinicFilter').value = 'clinic_cardinal';
+  $('uploadClinic').value = $('clinicFilter').value;
+  $('sendClinic').value = $('clinicFilter').value;
+}
+
+function selectedClinicId() {
+  return $('clinicFilter').value || state.clinics[0]?.id || '';
+}
+
 async function loadTemplates() {
-  state.templates = await api('/api/templates', { headers: headers() });
+  const clinicId = selectedClinicId();
+  state.templates = await api(`/api/templates?clinicId=${encodeURIComponent(clinicId)}`, { headers: headers() });
   $('templateList').innerHTML = state.templates.map((t) => `
     <div class="row">
       <div><strong>${t.name}</strong><br><span class="muted">${t.fields.length} fields</span></div>
@@ -40,6 +56,18 @@ async function loadTemplates() {
 
   document.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => openDesigner(button.dataset.edit)));
 }
+
+$('clinicFilter').addEventListener('change', async () => {
+  $('uploadClinic').value = selectedClinicId();
+  $('sendClinic').value = selectedClinicId();
+  await loadTemplates();
+  await loadContracts();
+});
+
+$('sendClinic').addEventListener('change', async () => {
+  $('clinicFilter').value = $('sendClinic').value;
+  await loadTemplates();
+});
 
 $('uploadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -163,7 +191,7 @@ $('sendForm').addEventListener('submit', async (event) => {
 });
 
 async function loadContracts() {
-  const rows = await api('/api/contracts', { headers: headers() });
+  const rows = await api(`/api/contracts?clinicId=${encodeURIComponent(selectedClinicId())}`, { headers: headers() });
   $('contractList').innerHTML = rows.map((row) => `
     <div class="row">
       <div><strong>${row.patient_name}</strong><br><span class="muted">${row.payer_email} · ${row.patient_record_id || 'No patient ID'}</span></div>
@@ -172,6 +200,6 @@ async function loadContracts() {
   `).join('') || '<p class="muted">No contracts yet.</p>';
 }
 
-loadTemplates().catch((error) => {
+loadClinics().then(loadTemplates).catch((error) => {
   $('templateList').innerHTML = `<p class="error">${error.message}</p>`;
 });

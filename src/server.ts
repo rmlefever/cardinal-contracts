@@ -10,7 +10,7 @@ import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { config } from './config.js';
 import { audit } from './audit.js';
-import { db, fieldsFor, type ContractRecord, type TemplateRecord, type TemplateField } from './db.js';
+import { db, fieldsFor, type ClinicRecord, type ContractRecord, type TemplateRecord, type TemplateField } from './db.js';
 import { sendSigningEmail } from './email.js';
 import { stampSignedPdf } from './pdf.js';
 
@@ -41,9 +41,28 @@ function publicTemplate(t: TemplateRecord) {
 
 app.get('/health', async () => ({ ok: true }));
 
+app.get('/api/clinics', async (request) => {
+  requireAdmin(request);
+  return db.prepare('SELECT * FROM clinics ORDER BY name ASC').all() as ClinicRecord[];
+});
+
+app.post('/api/clinics', async (request) => {
+  requireAdmin(request);
+  const body = z.object({
+    name: z.string().min(1),
+    emailFrom: z.string().optional()
+  }).parse(request.body);
+  const id = `clinic_${body.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}_${nanoid(5)}`;
+  db.prepare('INSERT INTO clinics (id, name, email_from) VALUES (?, ?, ?)').run(id, body.name, body.emailFrom ?? null);
+  return db.prepare('SELECT * FROM clinics WHERE id = ?').get(id) as ClinicRecord;
+});
+
 app.get('/api/templates', async (request) => {
   requireAdmin(request);
-  const rows = db.prepare('SELECT * FROM templates ORDER BY created_at DESC').all() as TemplateRecord[];
+  const clinicId = (request.query as { clinicId?: string }).clinicId;
+  const rows = clinicId
+    ? db.prepare('SELECT * FROM templates WHERE clinic_id = ? ORDER BY created_at DESC').all(clinicId) as TemplateRecord[]
+    : db.prepare('SELECT * FROM templates ORDER BY created_at DESC').all() as TemplateRecord[];
   return rows.map(publicTemplate);
 });
 
@@ -89,6 +108,10 @@ app.put('/api/templates/:id/fields', async (request) => {
 
 app.get('/api/contracts', async (request) => {
   requireAdmin(request);
+  const clinicId = (request.query as { clinicId?: string }).clinicId;
+  if (clinicId) {
+    return db.prepare('SELECT * FROM contracts WHERE clinic_id = ? ORDER BY created_at DESC LIMIT 200').all(clinicId);
+  }
   return db.prepare('SELECT * FROM contracts ORDER BY created_at DESC LIMIT 200').all();
 });
 

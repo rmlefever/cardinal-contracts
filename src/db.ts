@@ -63,8 +63,10 @@ CREATE TABLE IF NOT EXISTS audit_events (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO clinics (id, name, email_from)
-VALUES ('clinic_cardinal', 'The Cardinal Clinic', 'Cardinal Clinic <signing@docuseal.ink>');
+INSERT OR IGNORE INTO clinics (id, name, email_from) VALUES
+  ('clinic_promis_hay_farm', 'PROMIS Hay Farm', 'PROMIS Hay Farm <signing@docuseal.ink>'),
+  ('clinic_promis_london', 'PROMIS London', 'PROMIS London <signing@docuseal.ink>'),
+  ('clinic_cardinal', 'Cardinal Clinic', 'Cardinal Clinic <signing@docuseal.ink>');
 `);
 
 export type TemplateField = {
@@ -89,6 +91,13 @@ export type TemplateRecord = {
   status: string;
   created_at: string;
   updated_at: string;
+};
+
+export type ClinicRecord = {
+  id: string;
+  name: string;
+  email_from: string | null;
+  created_at: string;
 };
 
 export type ContractRecord = {

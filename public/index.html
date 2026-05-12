@@ -12,6 +12,7 @@
       <aside class="sidebar">
         <div class="brand">Cardinal<br>Contracts</div>
         <label>Admin token<input id="adminToken" type="password" value="change-me"></label>
+        <label>Clinic<select id="clinicFilter"></select></label>
         <div style="height:18px"></div>
         <nav class="nav">
           <button class="active" data-tab="templates">Templates</button>
@@ -29,7 +30,7 @@
           </div>
           <form id="uploadForm" class="panel form-grid">
             <label>Template name<input name="name" value="Cardinal Standard Room Contract - 2026"></label>
-            <label>Clinic<select name="clinicId"><option value="clinic_cardinal">The Cardinal Clinic</option></select></label>
+            <label>Clinic<select name="clinicId" id="uploadClinic"></select></label>
             <label>PDF<input name="file" type="file" accept="application/pdf" required></label>
             <button type="submit">Upload PDF</button>
           </form>
@@ -56,6 +57,7 @@
         <section id="send" class="grid hidden">
           <h1>Send Contract</h1>
           <form id="sendForm" class="panel form-grid">
+            <label>Clinic<select name="clinicId" id="sendClinic"></select></label>
             <label>Template<select name="templateId" id="templateSelect"></select></label>
             <label>Patient record ID<input name="patientRecordId" placeholder="PAT-123"></label>
             <label>Patient name<input name="patientName" required></label>
