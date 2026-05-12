@@ -57,6 +57,20 @@ app.post('/api/clinics', async (request) => {
   return db.prepare('SELECT * FROM clinics WHERE id = ?').get(id) as ClinicRecord;
 });
 
+app.delete('/api/clinics/:id', async (request) => {
+  requireAdmin(request);
+  const id = (request.params as { id: string }).id;
+  const counts = {
+    templates: (db.prepare('SELECT COUNT(*) AS count FROM templates WHERE clinic_id = ?').get(id) as { count: number }).count,
+    contracts: (db.prepare('SELECT COUNT(*) AS count FROM contracts WHERE clinic_id = ?').get(id) as { count: number }).count
+  };
+  if (counts.templates || counts.contracts) {
+    throw Object.assign(new Error('Clinic has templates or contracts and cannot be deleted'), { statusCode: 400 });
+  }
+  db.prepare('DELETE FROM clinics WHERE id = ?').run(id);
+  return { ok: true };
+});
+
 app.get('/api/templates', async (request) => {
   requireAdmin(request);
   const clinicId = (request.query as { clinicId?: string }).clinicId;
