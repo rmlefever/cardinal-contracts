@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+.swarm
+data
+uploads
+storage
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cardinal Contracts</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">Cardinal<br>Contracts</div>
+        <label>Admin token<input id="adminToken" type="password" value="change-me"></label>
+        <div style="height:18px"></div>
+        <nav class="nav">
+          <button class="active" data-tab="templates">Templates</button>
+          <button data-tab="send">Send Contract</button>
+          <button data-tab="contracts">Contracts</button>
+        </nav>
+      </aside>
+      <main class="main">
+        <section id="templates" class="grid">
+          <div class="toolbar">
+            <div>
+              <h1>Templates</h1>
+              <p class="muted">Upload a PDF, place fields, and activate it for clinic use.</p>
+            </div>
+          </div>
+          <form id="uploadForm" class="panel form-grid">
+            <label>Template name<input name="name" value="Cardinal Standard Room Contract - 2026"></label>
+            <label>Clinic<select name="clinicId"><option value="clinic_cardinal">The Cardinal Clinic</option></select></label>
+            <label>PDF<input name="file" type="file" accept="application/pdf" required></label>
+            <button type="submit">Upload PDF</button>
+          </form>
+          <div id="templateList" class="panel list"></div>
+          <div id="designer" class="designer hidden">
+            <div class="pdf-stage" id="pdfStage">
+              <canvas id="pdfCanvas"></canvas>
+            </div>
+            <div class="panel grid">
+              <h2 id="designerTitle">Field editor</h2>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <button class="secondary" id="prevPage">Prev</button>
+                <button class="secondary" id="nextPage">Next</button>
+              </div>
+              <label>Field label<input id="fieldLabel" value="Patient Name"></label>
+              <label>Type<select id="fieldType"><option>text</option><option>number</option><option>date</option><option>signature</option><option>checkbox</option></select></label>
+              <label>Source<select id="fieldSource"><option value="manual">Manual</option><option value="patientName">Patient name</option><option value="patientAge">Patient age</option><option value="payerName">Payer name</option><option value="payerEmail">Payer email</option></select></label>
+              <button id="addField">Add Field</button>
+              <button id="saveFields">Save And Activate</button>
+              <div id="fieldList" class="list"></div>
+            </div>
+          </div>
+        </section>
+        <section id="send" class="grid hidden">
+          <h1>Send Contract</h1>
+          <form id="sendForm" class="panel form-grid">
+            <label>Template<select name="templateId" id="templateSelect"></select></label>
+            <label>Patient record ID<input name="patientRecordId" placeholder="PAT-123"></label>
+            <label>Patient name<input name="patientName" required></label>
+            <label>Patient age<input name="patientAge"></label>
+            <label>Payer name<input name="payerName" required></label>
+            <label>Payer email<input name="payerEmail" type="email" required></label>
+            <button type="submit">Send Signing Email</button>
+          </form>
+          <div id="sendResult" class="panel hidden"></div>
+        </section>
+        <section id="contracts" class="grid hidden">
+          <h1>Contracts</h1>
+          <div id="contractList" class="panel list"></div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

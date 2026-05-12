@@ -1,0 +1,24 @@
+services:
+  cardinal-contracts:
+    build: .
+    restart: unless-stopped
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:4321}
+      PORT: 4321
+      DATABASE_PATH: /app/data/contracts.sqlite
+      UPLOAD_DIR: /app/uploads
+      STORAGE_DIR: /app/storage
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Cardinal Clinic <signing@docuseal.ink>}
+    volumes:
+      - cardinal_contracts_data:/app/data
+      - cardinal_contracts_uploads:/app/uploads
+      - cardinal_contracts_storage:/app/storage
+    ports:
+      - "4321:4321"
+
+volumes:
+  cardinal_contracts_data:
+  cardinal_contracts_uploads:
+  cardinal_contracts_storage:

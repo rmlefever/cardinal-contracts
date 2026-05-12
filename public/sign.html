@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign Contract</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="sign-shell">
+      <h1>Review and sign</h1>
+      <div id="message" class="panel muted">Loading contract...</div>
+      <div id="signer" class="sign-layout hidden">
+        <div class="panel">
+          <iframe id="pdfFrame" title="Contract PDF" style="width:100%;height:720px;border:0"></iframe>
+        </div>
+        <form id="signForm" class="panel grid"></form>
+      </div>
+    </main>
+    <script src="/sign.js" type="module"></script>
+  </body>
+</html>
