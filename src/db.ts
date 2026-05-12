@@ -63,10 +63,13 @@ CREATE TABLE IF NOT EXISTS audit_events (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT OR IGNORE INTO clinics (id, name, email_from) VALUES
+INSERT INTO clinics (id, name, email_from) VALUES
   ('clinic_promis_hay_farm', 'PROMIS Hay Farm', 'PROMIS Hay Farm <signing@docuseal.ink>'),
   ('clinic_promis_london', 'PROMIS London', 'PROMIS London <signing@docuseal.ink>'),
-  ('clinic_cardinal', 'Cardinal Clinic', 'Cardinal Clinic <signing@docuseal.ink>');
+  ('clinic_cardinal', 'Cardinal Clinic', 'Cardinal Clinic <signing@docuseal.ink>')
+ON CONFLICT(id) DO UPDATE SET
+  name = excluded.name,
+  email_from = excluded.email_from;
 `);
 
 export type TemplateField = {
