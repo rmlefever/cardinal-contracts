@@ -1,8 +1,8 @@
 import { db } from './db.js';
 
 const clinics = [
-  ['clinic_promis_hay_farm', 'Promise Hay Farm', 'Promise Hay Farm <signing@docuseal.ink>'],
-  ['clinic_promis_london', 'Promise London', 'Promise London <signing@docuseal.ink>'],
+  ['clinic_promis_hay_farm', 'PROMIS Hay Farm', 'PROMIS Hay Farm <signing@docuseal.ink>'],
+  ['clinic_promis_london', 'PROMIS London', 'PROMIS London <signing@docuseal.ink>'],
   ['clinic_cardinal', 'Cardinal Clinic', 'Cardinal Clinic <signing@docuseal.ink>']
 ] as const;
 
