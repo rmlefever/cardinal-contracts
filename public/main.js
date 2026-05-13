@@ -9,7 +9,7 @@ $('adminToken').value = localStorage.getItem('cardinalAdminToken') || '';
 $('adminToken').addEventListener('change', async () => {
   localStorage.setItem('cardinalAdminToken', $('adminToken').value);
   await loadClinics();
-  await loadTemplates();
+  if ($('adminToken').value) await loadTemplates();
 });
 
 function headers() {
@@ -27,21 +27,25 @@ document.querySelectorAll('.nav button').forEach((button) => {
   button.addEventListener('click', () => {
     document.querySelectorAll('.nav button').forEach((b) => b.classList.remove('active'));
     button.classList.add('active');
-    ['templates', 'send', 'contracts'].forEach((id) => $(id).classList.toggle('hidden', id !== button.dataset.tab));
+    ['templates', 'send', 'contracts', 'clinics'].forEach((id) => $(id).classList.toggle('hidden', id !== button.dataset.tab));
     if (button.dataset.tab === 'contracts') loadContracts();
     if (button.dataset.tab === 'send') loadTemplates();
+    if (button.dataset.tab === 'clinics') loadClinicList();
   });
 });
 
 async function loadClinics() {
-  state.clinics = await api('/api/clinics', { headers: headers() });
+  state.clinics = await api('/api/clinics');
   const options = state.clinics.map((clinic) => `<option value="${clinic.id}">${clinic.name}</option>`).join('');
   $('clinicFilter').innerHTML = options;
   $('uploadClinic').innerHTML = options;
   $('sendClinic').innerHTML = options;
-  $('clinicFilter').value = 'clinic_cardinal';
+  if (state.clinics.some((clinic) => clinic.id === 'clinic_cardinal')) {
+    $('clinicFilter').value = 'clinic_cardinal';
+  }
   $('uploadClinic').value = $('clinicFilter').value;
   $('sendClinic').value = $('clinicFilter').value;
+  loadClinicList();
 }
 
 function selectedClinicId() {
@@ -49,6 +53,11 @@ function selectedClinicId() {
 }
 
 async function loadTemplates() {
+  if (!$('adminToken').value) {
+    $('templateList').innerHTML = '<p class="muted">Paste the admin token to load templates.</p>';
+    $('templateSelect').innerHTML = '';
+    return;
+  }
   const clinicId = selectedClinicId();
   state.templates = await api(`/api/templates?clinicId=${encodeURIComponent(clinicId)}`, { headers: headers() });
   $('templateList').innerHTML = state.templates.map((t) => `
@@ -63,6 +72,29 @@ async function loadTemplates() {
 
   document.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => openDesigner(button.dataset.edit)));
 }
+
+function loadClinicList() {
+  $('clinicList').innerHTML = state.clinics.map((clinic) => `
+    <div class="row">
+      <div><strong>${clinic.name}</strong><br><span class="muted">${clinic.email_from || 'No custom sender'} · ${clinic.id}</span></div>
+      <button class="secondary" data-delete-clinic="${clinic.id}">Remove</button>
+    </div>
+  `).join('') || '<p class="muted">No clinics yet.</p>';
+
+  document.querySelectorAll('[data-delete-clinic]').forEach((button) => button.addEventListener('click', async () => {
+    if (!confirm('Remove this clinic? It can only be removed if it has no templates or contracts.')) return;
+    await api(`/api/clinics/${button.dataset.deleteClinic}`, { method: 'DELETE', headers: headers() });
+    await loadClinics();
+  }));
+}
+
+$('clinicForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+  await api('/api/clinics', { method: 'POST', headers: headers(), body: JSON.stringify(values) });
+  event.currentTarget.reset();
+  await loadClinics();
+});
 
 $('clinicFilter').addEventListener('change', async () => {
   $('uploadClinic').value = selectedClinicId();

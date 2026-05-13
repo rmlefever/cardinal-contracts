@@ -18,6 +18,7 @@
           <button class="active" data-tab="templates">Templates</button>
           <button data-tab="send">Send Contract</button>
           <button data-tab="contracts">Contracts</button>
+          <button data-tab="clinics">Clinics</button>
         </nav>
       </aside>
       <main class="main">
@@ -71,6 +72,20 @@
         <section id="contracts" class="grid hidden">
           <h1>Contracts</h1>
           <div id="contractList" class="panel list"></div>
+        </section>
+        <section id="clinics" class="grid hidden">
+          <div class="toolbar">
+            <div>
+              <h1>Clinics</h1>
+              <p class="muted">Manage the clinic list used for templates, sending, and contract tracking.</p>
+            </div>
+          </div>
+          <form id="clinicForm" class="panel form-grid">
+            <label>Clinic name<input name="name" placeholder="New clinic" required></label>
+            <label>Email sender<input name="emailFrom" placeholder="Clinic Name <signing@docuseal.ink>"></label>
+            <button type="submit">Add Clinic</button>
+          </form>
+          <div id="clinicList" class="panel list"></div>
         </section>
       </main>
     </div>

@@ -42,7 +42,6 @@ function publicTemplate(t: TemplateRecord) {
 app.get('/health', async () => ({ ok: true }));
 
 app.get('/api/clinics', async (request) => {
-  requireAdmin(request);
   return db.prepare('SELECT * FROM clinics ORDER BY name ASC').all() as ClinicRecord[];
 });
 
