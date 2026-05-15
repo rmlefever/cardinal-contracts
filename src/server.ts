@@ -121,11 +121,12 @@ app.put('/api/templates/:id/fields', async (request) => {
 
 app.get('/api/contracts', async (request) => {
   requireAdmin(request);
-  const clinicId = (request.query as { clinicId?: string }).clinicId;
+  const { clinicId, archived } = request.query as { clinicId?: string; archived?: string };
+  const archiveClause = archived === 'true' ? 'archived_at IS NOT NULL' : 'archived_at IS NULL';
   if (clinicId) {
-    return db.prepare('SELECT * FROM contracts WHERE clinic_id = ? ORDER BY created_at DESC LIMIT 200').all(clinicId);
+    return db.prepare(`SELECT * FROM contracts WHERE clinic_id = ? AND ${archiveClause} ORDER BY created_at DESC LIMIT 200`).all(clinicId);
   }
-  return db.prepare('SELECT * FROM contracts ORDER BY created_at DESC LIMIT 200').all();
+  return db.prepare(`SELECT * FROM contracts WHERE ${archiveClause} ORDER BY created_at DESC LIMIT 200`).all();
 });
 
 const createContractSchema = z.object({
@@ -174,6 +175,7 @@ app.get('/api/sign/:token', async (request) => {
   const token = (request.params as { token: string }).token;
   const contract = db.prepare('SELECT * FROM contracts WHERE signing_token = ?').get(token) as ContractRecord | undefined;
   if (!contract) throw Object.assign(new Error('Contract not found'), { statusCode: 404 });
+  if (contract.archived_at) throw Object.assign(new Error('Contract has been archived'), { statusCode: 410 });
   const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(contract.template_id) as TemplateRecord;
   const values = db.prepare('SELECT field_id, value FROM contract_values WHERE contract_id = ?').all(contract.id) as { field_id: string; value: string }[];
   audit({ contractId: contract.id, actor: 'signer', eventType: 'contract.opened', ip: request.ip, userAgent: request.headers['user-agent'], data: {} });
@@ -185,6 +187,7 @@ app.post('/api/sign/:token/complete', async (request) => {
   const body = z.object({ values: z.record(z.string()) }).parse(request.body);
   const contract = db.prepare('SELECT * FROM contracts WHERE signing_token = ?').get(token) as ContractRecord | undefined;
   if (!contract) throw Object.assign(new Error('Contract not found'), { statusCode: 404 });
+  if (contract.archived_at) throw Object.assign(new Error('Contract has been archived'), { statusCode: 410 });
   if (contract.status === 'completed') throw Object.assign(new Error('Contract is already completed'), { statusCode: 400 });
 
   const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(contract.template_id) as TemplateRecord;
@@ -209,6 +212,48 @@ app.post('/api/sign/:token/complete', async (request) => {
 app.get('/api/contracts/:id/audit', async (request) => {
   requireAdmin(request);
   return db.prepare('SELECT * FROM audit_events WHERE contract_id = ? ORDER BY created_at ASC').all((request.params as { id: string }).id);
+});
+
+app.post('/api/contracts/:id/archive', async (request) => {
+  requireAdmin(request);
+  const id = (request.params as { id: string }).id;
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(id) as ContractRecord | undefined;
+  if (!contract) throw Object.assign(new Error('Contract not found'), { statusCode: 404 });
+
+  db.prepare(`
+    UPDATE contracts
+    SET archived_at = COALESCE(archived_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(id);
+  audit({ contractId: id, actor: 'admin', eventType: 'contract.archived', ip: request.ip, userAgent: request.headers['user-agent'], data: {} });
+  return db.prepare('SELECT * FROM contracts WHERE id = ?').get(id) as ContractRecord;
+});
+
+app.post('/api/contracts/:id/restore', async (request) => {
+  requireAdmin(request);
+  const id = (request.params as { id: string }).id;
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(id) as ContractRecord | undefined;
+  if (!contract) throw Object.assign(new Error('Contract not found'), { statusCode: 404 });
+
+  db.prepare('UPDATE contracts SET archived_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(id);
+  audit({ contractId: id, actor: 'admin', eventType: 'contract.restored', ip: request.ip, userAgent: request.headers['user-agent'], data: {} });
+  return db.prepare('SELECT * FROM contracts WHERE id = ?').get(id) as ContractRecord;
+});
+
+app.delete('/api/contracts/:id', async (request) => {
+  requireAdmin(request);
+  const id = (request.params as { id: string }).id;
+  const contract = db.prepare('SELECT * FROM contracts WHERE id = ?').get(id) as ContractRecord | undefined;
+  if (!contract) throw Object.assign(new Error('Contract not found'), { statusCode: 404 });
+  if (!contract.archived_at) {
+    throw Object.assign(new Error('Archive the contract before permanent deletion'), { statusCode: 400 });
+  }
+
+  db.prepare('DELETE FROM contracts WHERE id = ?').run(id);
+  if (contract.signed_pdf_path) {
+    await fsp.rm(contract.signed_pdf_path, { force: true });
+  }
+  return { ok: true };
 });
 
 app.listen({ port: config.port, host: '0.0.0.0' });

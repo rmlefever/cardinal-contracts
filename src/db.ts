@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   signing_token TEXT NOT NULL UNIQUE,
   signed_pdf_path TEXT,
   completed_at TEXT,
+  archived_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -71,6 +72,15 @@ ON CONFLICT(id) DO UPDATE SET
   name = excluded.name,
   email_from = excluded.email_from;
 `);
+
+function hasColumn(table: string, column: string) {
+  return (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
+    .some((row) => row.name === column);
+}
+
+if (!hasColumn('contracts', 'archived_at')) {
+  db.prepare('ALTER TABLE contracts ADD COLUMN archived_at TEXT').run();
+}
 
 export type TemplateField = {
   id: string;
@@ -116,6 +126,7 @@ export type ContractRecord = {
   signing_token: string;
   signed_pdf_path: string | null;
   completed_at: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };

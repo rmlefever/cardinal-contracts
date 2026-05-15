@@ -6,8 +6,13 @@ const state = { clinics: [], templates: [], selected: null, pdf: null, page: 1, 
 const $ = (id) => document.getElementById(id);
 
 $('adminToken').value = localStorage.getItem('cardinalAdminToken') || '';
-$('adminToken').addEventListener('change', async () => {
+function saveAdminToken() {
   localStorage.setItem('cardinalAdminToken', $('adminToken').value);
+}
+
+$('adminToken').addEventListener('input', saveAdminToken);
+$('adminToken').addEventListener('change', async () => {
+  saveAdminToken();
   await loadClinics();
   if ($('adminToken').value) await loadTemplates();
 });
@@ -18,9 +23,28 @@ function headers() {
 
 async function api(path, options = {}) {
   const res = await fetch(path, options);
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.message || body.error || res.statusText);
+  const body = await readResponseBody(res);
+  if (!res.ok) throw new Error(errorMessage(body, res));
   return body;
+}
+
+async function readResponseBody(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) return res.json().catch(() => ({}));
+  return { message: await res.text().catch(() => '') };
+}
+
+function errorMessage(body, res) {
+  if (res.status === 401) return 'Admin token is missing or incorrect. Paste the admin token, then try again.';
+  return body.message || body.error || res.statusText;
+}
+
+function requireAdminToken() {
+  saveAdminToken();
+  if (!$('adminToken').value.trim()) {
+    $('adminToken').focus();
+    throw new Error('Paste the admin token before uploading or changing contracts.');
+  }
 }
 
 document.querySelectorAll('.nav button').forEach((button) => {
@@ -110,12 +134,17 @@ $('sendClinic').addEventListener('change', async () => {
 
 $('uploadForm').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  const res = await fetch('/api/templates/upload', { method: 'POST', headers: { Authorization: `Bearer ${$('adminToken').value}` }, body: form });
-  if (!res.ok) return alert(await res.text());
-  const template = await res.json();
-  await loadTemplates();
-  openDesigner(template.id);
+  try {
+    requireAdminToken();
+    const form = new FormData(event.currentTarget);
+    const res = await fetch('/api/templates/upload', { method: 'POST', headers: { Authorization: `Bearer ${$('adminToken').value}` }, body: form });
+    const body = await readResponseBody(res);
+    if (!res.ok) throw new Error(errorMessage(body, res));
+    await loadTemplates();
+    openDesigner(body.id);
+  } catch (error) {
+    alert(error.message);
+  }
 });
 
 async function openDesigner(id) {
@@ -229,14 +258,39 @@ $('sendForm').addEventListener('submit', async (event) => {
   $('sendResult').innerHTML = `<strong>Contract created.</strong><br><a href="${result.signingUrl}" target="_blank">${result.signingUrl}</a><br><span class="muted">Email sent: ${result.email.sent ? 'yes' : 'no'}</span>`;
 });
 
+$('showArchivedContracts').addEventListener('change', loadContracts);
+
 async function loadContracts() {
-  const rows = await api(`/api/contracts?clinicId=${encodeURIComponent(selectedClinicId())}`, { headers: headers() });
+  const archived = $('showArchivedContracts').checked;
+  const rows = await api(`/api/contracts?clinicId=${encodeURIComponent(selectedClinicId())}&archived=${archived}`, { headers: headers() });
   $('contractList').innerHTML = rows.map((row) => `
     <div class="row">
-      <div><strong>${row.patient_name}</strong><br><span class="muted">${row.payer_email} · ${row.patient_record_id || 'No patient ID'}</span></div>
-      <div><span class="status">${row.status}</span>${row.signed_pdf_path ? ` <a href="/storage/${row.signed_pdf_path.split('/').pop()}" target="_blank">PDF</a>` : ''}</div>
+      <div><strong>${row.patient_name}</strong><br><span class="muted">${row.payer_email} · ${row.patient_record_id || 'No patient ID'}${row.archived_at ? ` · Archived ${row.archived_at}` : ''}</span></div>
+      <div class="row-actions">
+        <span class="status">${row.status}</span>
+        ${row.signed_pdf_path ? ` <a href="/storage/${row.signed_pdf_path.split('/').pop()}" target="_blank">PDF</a>` : ''}
+        ${row.archived_at
+          ? `<button class="secondary" data-restore-contract="${row.id}">Restore</button><button class="secondary danger" data-delete-contract="${row.id}">Remove</button>`
+          : `<button class="secondary" data-archive-contract="${row.id}">Archive</button>`}
+      </div>
     </div>
   `).join('') || '<p class="muted">No contracts yet.</p>';
+
+  document.querySelectorAll('[data-archive-contract]').forEach((button) => button.addEventListener('click', async () => {
+    await api(`/api/contracts/${button.dataset.archiveContract}/archive`, { method: 'POST', headers: headers() });
+    await loadContracts();
+  }));
+
+  document.querySelectorAll('[data-restore-contract]').forEach((button) => button.addEventListener('click', async () => {
+    await api(`/api/contracts/${button.dataset.restoreContract}/restore`, { method: 'POST', headers: headers() });
+    await loadContracts();
+  }));
+
+  document.querySelectorAll('[data-delete-contract]').forEach((button) => button.addEventListener('click', async () => {
+    if (!confirm('Permanently remove this archived contract and signed PDF?')) return;
+    await api(`/api/contracts/${button.dataset.deleteContract}`, { method: 'DELETE', headers: headers() });
+    await loadContracts();
+  }));
 }
 
 loadClinics().then(loadTemplates).catch((error) => {

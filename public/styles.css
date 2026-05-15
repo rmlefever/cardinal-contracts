@@ -36,6 +36,11 @@ button.secondary {
   color: var(--ink);
 }
 
+button.danger {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
 input, select {
   width: 100%;
   border: 1px solid var(--line);
@@ -43,6 +48,10 @@ input, select {
   padding: 9px 10px;
   background: #fffdfa;
   color: var(--ink);
+}
+
+input[type="checkbox"] {
+  width: auto;
 }
 
 label {
@@ -128,6 +137,25 @@ label {
   align-items: center;
   border-bottom: 1px solid var(--line);
   padding: 10px 0;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.row-actions button {
+  padding: 6px 9px;
+}
+
+.inline-control {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-self: end;
 }
 
 .status {
