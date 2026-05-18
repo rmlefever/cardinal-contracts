@@ -7,5 +7,5 @@ export const config = {
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? './uploads'),
   storageDir: path.resolve(process.env.STORAGE_DIR ?? './storage'),
   resendApiKey: process.env.RESEND_API_KEY ?? '',
-  emailFrom: process.env.EMAIL_FROM ?? 'Cardinal Clinic <signing@docuseal.ink>'
+  emailFrom: process.env.EMAIL_FROM ?? 'DocuSeal <signing@docuseal.ink>'
 };

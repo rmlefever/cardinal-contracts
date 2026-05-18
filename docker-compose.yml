@@ -10,7 +10,7 @@ services:
       STORAGE_DIR: /app/storage
       ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-Cardinal Clinic <signing@docuseal.ink>}
+      EMAIL_FROM: ${EMAIL_FROM:-DocuSeal <signing@docuseal.ink>}
     volumes:
       - cardinal_contracts_data:/app/data
       - cardinal_contracts_uploads:/app/uploads

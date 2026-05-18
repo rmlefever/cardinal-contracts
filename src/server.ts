@@ -145,6 +145,8 @@ app.post('/api/contracts', async (request) => {
   const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(body.templateId) as TemplateRecord | undefined;
   if (!template) throw Object.assign(new Error('Template not found'), { statusCode: 404 });
   if (template.status !== 'active') throw Object.assign(new Error('Template must be active before it can be sent'), { statusCode: 400 });
+  const clinic = db.prepare('SELECT * FROM clinics WHERE id = ?').get(body.clinicId) as ClinicRecord | undefined;
+  if (!clinic) throw Object.assign(new Error('Clinic not found'), { statusCode: 404 });
 
   const id = `ctr_${nanoid(12)}`;
   const token = nanoid(32);
@@ -166,7 +168,13 @@ app.post('/api/contracts', async (request) => {
   for (const [fieldId, value] of Object.entries(values)) insertValue.run(id, fieldId, value);
 
   const signingUrl = `${config.appUrl}/sign.html?token=${token}`;
-  const email = await sendSigningEmail({ to: body.payerEmail, signerName: body.payerName, patientName: body.patientName, signingUrl });
+  const email = await sendSigningEmail({
+    to: body.payerEmail,
+    from: clinic.email_from,
+    signerName: body.payerName,
+    patientName: body.patientName,
+    signingUrl
+  });
   audit({ contractId: id, actor: 'system', eventType: 'contract.created', data: { patientRecordId: body.patientRecordId, email } });
   return { ...(db.prepare('SELECT * FROM contracts WHERE id = ?').get(id) as ContractRecord), signingUrl, email };
 });

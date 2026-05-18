@@ -3,6 +3,7 @@ import { config } from './config.js';
 
 export async function sendSigningEmail(input: {
   to: string;
+  from?: string | null;
   signerName: string;
   patientName: string;
   signingUrl: string;
@@ -10,8 +11,8 @@ export async function sendSigningEmail(input: {
   if (!config.resendApiKey) return { sent: false, reason: 'RESEND_API_KEY is not configured' };
 
   const resend = new Resend(config.resendApiKey);
-  await resend.emails.send({
-    from: config.emailFrom,
+  const result = await resend.emails.send({
+    from: input.from || config.emailFrom,
     to: input.to,
     subject: `Contract for ${input.patientName}`,
     html: `
@@ -22,7 +23,11 @@ export async function sendSigningEmail(input: {
     `
   });
 
-  return { sent: true };
+  if (result.error) {
+    return { sent: false, reason: result.error.message, error: result.error };
+  }
+
+  return { sent: true, id: result.data.id };
 }
 
 function escapeHtml(value: string) {
