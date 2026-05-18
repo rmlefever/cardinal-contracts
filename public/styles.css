@@ -230,9 +230,11 @@ label {
 
 .sig-pad {
   border: 1px solid var(--line);
+  display: block;
   width: 100%;
   height: 120px;
   background: white;
+  cursor: crosshair;
   touch-action: none;
 }
 

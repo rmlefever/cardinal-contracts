@@ -14,9 +14,9 @@ async function load() {
   state.payload = payload;
   state.values = payload.values || {};
   pdfFrame.src = `/uploads/${payload.template.pdf_path.split('/').pop()}`;
-  renderForm();
   message.classList.add('hidden');
   signer.classList.remove('hidden');
+  renderForm();
 }
 
 function renderForm() {
@@ -43,11 +43,14 @@ function fieldHtml(field) {
 function setupSignature(field) {
   const canvas = document.querySelector(`[data-signature="${field.id}"]`);
   const ctx = canvas.getContext('2d');
-  canvas.width = canvas.clientWidth * devicePixelRatio;
-  canvas.height = canvas.clientHeight * devicePixelRatio;
+  const width = canvas.clientWidth || canvas.getBoundingClientRect().width || 300;
+  const height = canvas.clientHeight || canvas.getBoundingClientRect().height || 120;
+  canvas.width = width * devicePixelRatio;
+  canvas.height = height * devicePixelRatio;
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.lineWidth = 2;
   ctx.lineCap = 'round';
+  ctx.strokeStyle = '#17201b';
   let drawing = false;
   let wrote = false;
   const point = (event) => {
@@ -55,6 +58,8 @@ function setupSignature(field) {
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
   canvas.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    canvas.setPointerCapture(event.pointerId);
     drawing = true;
     wrote = true;
     const p = point(event);
@@ -63,14 +68,17 @@ function setupSignature(field) {
   });
   canvas.addEventListener('pointermove', (event) => {
     if (!drawing) return;
+    event.preventDefault();
     const p = point(event);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
   });
-  window.addEventListener('pointerup', () => {
+  const stopDrawing = () => {
     drawing = false;
     if (wrote) state.values[field.id] = canvas.toDataURL('image/png');
-  });
+  };
+  canvas.addEventListener('pointerup', stopDrawing);
+  canvas.addEventListener('pointercancel', stopDrawing);
   document.querySelector(`[data-clear="${field.id}"]`).addEventListener('click', () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     delete state.values[field.id];
