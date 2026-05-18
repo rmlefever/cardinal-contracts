@@ -73,7 +73,8 @@ function setupSignature(field) {
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
   });
-  const stopDrawing = () => {
+  const stopDrawing = (event) => {
+    event.preventDefault();
     drawing = false;
     if (wrote) state.values[field.id] = canvas.toDataURL('image/png');
   };
