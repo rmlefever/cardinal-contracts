@@ -2,6 +2,11 @@
 
 Self-hosted contract sending and signing layer for clinics. It provides the Pro-style workflow we wanted: template upload, visual field placement, one-click sending, signer emails, status tracking, signed PDF generation, and audit logs.
 
+## Documentation
+
+- [Technical overview](docs/technical-overview.md): architecture, feature behaviour, API flows, database relationships, technical debt, and deployment assumptions.
+- [Build plan](PLAN.md): original implementation phases and remaining hardening work.
+
 ## Retention and archive model
 
 DocuSeal treats storage and retention as a core capability: completed submissions remain available in the dashboard, signed files can be downloaded with their audit log, and archiving is a reversible soft-delete step before permanent removal. We mirror that model here.
@@ -15,10 +20,13 @@ DocuSeal treats storage and retention as a core capability: completed submission
 ```bash
 cp .env.example .env
 npm install
+npm run seed:clinics
 npm run dev
 ```
 
 Open `http://localhost:4321`. Set `ADMIN_TOKEN` in `.env`; API calls can use `Authorization: Bearer <token>`.
+
+The app stores SQLite data in `DATABASE_PATH`, uploaded template PDFs in `UPLOAD_DIR`, and signed PDFs in `STORAGE_DIR`. The defaults from `.env.example` are local paths under the repository.
 
 ## Patient record integration
 
