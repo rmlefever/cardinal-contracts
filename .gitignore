@@ -11,3 +11,6 @@ storage/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# agent tool artifacts (local vector/agent DB)
+agentdb.rvf*
