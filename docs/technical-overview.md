@@ -244,12 +244,39 @@ Operational assumptions visible in code and config:
 - Uploaded template PDFs and generated signed PDFs must be persisted separately from the container filesystem.
 - `APP_URL` must match the externally reachable base URL for email signing links to work.
 - Resend is the only email provider implemented.
-- A reverse proxy, TLS termination, backups, restore procedures, monitoring, and log retention are not defined in this repository.
+- A reverse proxy, TLS termination, monitoring, and log retention are not defined in this repository. Backup and restore are handled externally and are documented in [Backup and Recovery](#backup-and-recovery).
+
+## Backup and Recovery
+
+Application data is backed up independently of this repository by an operator-managed job (`~/bin/backup-contracts.sh`, scheduled at 00:30 daily via the `com.robinlefever.backup-contracts` LaunchAgent). The job and its snapshots live outside this repo; this section documents the behaviour for operational continuity.
+
+**Source:** the three named Docker volumes of the running contracts container on the Dokploy host (`docuseal`, `100.64.0.57`, reachable publicly as `contracts.docuseal.ink`):
+
+- `…_cardinal_contracts_data` (`/app/data`) — the SQLite database (`contracts.sqlite` plus its `-wal`/`-shm`).
+- `…_cardinal_contracts_uploads` (`/app/uploads`) — uploaded template PDFs.
+- `…_cardinal_contracts_storage` (`/app/storage`) — generated signed PDFs.
+
+Volumes are discovered at runtime from the container (matched on the `cardinal-contracts-` name prefix), so the job survives Dokploy's per-deploy container and volume suffix changes (e.g. `apq4td`). Each volume is streamed read-only into a gzipped tar via a throwaway `alpine` container, so it depends on nothing inside the application image.
+
+**Destination:** timestamped snapshots under `~/backups/contracts/<YYYY-MM-DD_HHMMSS>/` on the CC server (`cardinal`, `100.64.0.67`), with a `latest` symlink. Because that path lives under the CC server's `/home/rlefever`, the existing nightly `backup-cardinal` rsync pull copies it onward to the operator's local disk, so the data exists in two off-host copies.
+
+**Integrity and retention:**
+
+- Each landed archive is verified with `gzip -t` before the snapshot is promoted to `latest`; a failed volume leaves the partial snapshot in an `in-progress` directory for inspection and does not overwrite `latest`.
+- Snapshots older than 30 days are removed, judged by the date in the directory name.
+- The Dokploy host itself also has a server-level backup on Hetzner; this job adds an application-aware, cross-host copy.
+
+**Restore** (per volume, after stopping the app):
+
+```bash
+gunzip -c <archive>.tar.gz | docker run --rm -i -v <volume>:/dst alpine tar xf - -C /dst
+```
+
+For a full restore, recreate or reattach the three Dokploy volumes (`data`, `uploads`, `storage`), then restart the application container.
 
 ## Uncertain Areas
 
 - Clinical production compliance requirements are not described in this repository.
-- Backup frequency, restore testing, and retention policy are not described in this repository.
 - The intended production domain and TLS/proxy topology are not described in this repository.
 - Whether signed PDFs should remain publicly reachable under `/storage/` or move behind admin authorization is not specified in this repository.
 - Whether audit events should survive permanent contract deletion is not specified in this repository.
