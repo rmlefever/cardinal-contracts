@@ -4,7 +4,8 @@ Self-hosted contract sending and signing layer for clinics. It provides the Pro-
 
 ## Documentation
 
-- [Technical overview](docs/technical-overview.md): architecture, feature behaviour, API flows, database relationships, technical debt, and deployment assumptions.
+- [Technical overview](docs/technical-overview.md): architecture, feature behaviour, API flows, database relationships, [access control](docs/technical-overview.md#access-control), technical debt, and deployment assumptions.
+- [Framework integration](docs/framework-integration.md): handover brief for wiring contract sending into the Cardinal Framework (API reference, auth, current clinic/template state, what to build).
 - [Build plan](PLAN.md): original implementation phases and remaining hardening work.
 
 ## Retention and archive model
