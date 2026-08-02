@@ -9,7 +9,7 @@ import path from 'node:path';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { config } from './config.js';
-import { ipAllowed, isPublicPath } from './ip-allowlist.js';
+import { ipAllowed, isInternalIp, isPublicPath, hostFromUrl, requestHost } from './ip-allowlist.js';
 import { audit } from './audit.js';
 import { db, fieldsFor, type ClinicRecord, type ContractRecord, type TemplateRecord, type TemplateField } from './db.js';
 import { sendSigningEmail } from './email.js';
@@ -26,14 +26,23 @@ await app.register(fastifyStatic, { root: path.resolve('public'), prefix: '/' })
 await app.register(fastifyStatic, { root: config.uploadDir, prefix: '/uploads/', decorateReply: false });
 await app.register(fastifyStatic, { root: config.storageDir, prefix: '/storage/', decorateReply: false });
 
-// Admin-surface gate: hide every non-signer route from IPs outside the allowlist.
-// Signer routes (in `isPublicPath`) stay public; everything else requires a
-// tailnet/allowlisted source IP. Denials return 404 so the admin surface is
-// invisible (not just forbidden) to the public internet.
+// Admin-surface gate. Signer routes stay public; everything else is reachable
+// only from internal networks. The public domain is admin-blocked (the reverse
+// proxy routes on Host, so a public request always carries the public host);
+// direct tailnet access (Host = the IP) is allowed when the source IP is internal.
+// Denials return 404 so the admin surface is invisible, not just forbidden.
+const publicHost = hostFromUrl(config.appUrl);
 app.addHook('onRequest', async (request, reply) => {
-  if (isPublicPath(request.url)) return;
-  if (ipAllowed(request.ip, config.adminAllowCidrs)) return;
-  request.log.info({ ip: request.ip, path: request.url.split('?')[0] }, 'admin route blocked: source ip not in allowlist');
+  if (isPublicPath(request.url)) return; // signer flow stays public from anywhere
+  if (publicHost && requestHost(request.headers.host) === publicHost) {
+    // Public domain: allow admin only from an explicitly allowlisted IP (default none).
+    if (config.adminAllowCidrs.length && ipAllowed(request.ip, config.adminAllowCidrs)) return;
+    request.log.info({ ip: request.ip, path: request.url.split('?')[0] }, 'admin route blocked: via public domain');
+    return reply.code(404).send();
+  }
+  // Direct access (not the public domain): allow only from internal networks.
+  if (isInternalIp(request.ip)) return;
+  request.log.info({ ip: request.ip, path: request.url.split('?')[0] }, 'admin route blocked: source ip not internal');
   return reply.code(404).send();
 });
 
