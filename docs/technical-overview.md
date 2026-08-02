@@ -28,7 +28,7 @@ The frontend is not bundled. Admin PDF rendering loads PDF.js from a CDN in `pub
 
 The database bootstraps three clinics: `clinic_promis_hay_farm`, `clinic_promis_london`, and `clinic_cardinal`.
 
-`GET /api/clinics` is public in the current server code. Creating and deleting clinics require the admin bearer token. Clinic deletion is blocked when templates or contracts reference the clinic.
+`GET /api/clinics` returns the clinic list but, like all admin routes, is now gated to tailnet/internal or allowlisted access (see [Access Control](#access-control)); creating and deleting clinics additionally require the admin bearer token. Clinic deletion is blocked when templates or contracts reference the clinic.
 
 ### Templates
 
@@ -201,9 +201,8 @@ Relationship details:
 These items are present in the code or build configuration.
 
 - Authentication is a single shared admin bearer token; there are no user accounts, roles, sessions, or per-clinic admin permissions.
-- `GET /api/clinics` is public.
 - `ADMIN_TOKEN` defaults to `change-me` if not configured.
-- Uploaded PDFs and signed PDFs are served as static files by filename under `/uploads/` and `/storage/`.
+- Uploaded template PDFs are served as static files under `/uploads/` (the signer flow renders them). Generated signed PDFs under `/storage/` are now gated to admin/tailnet access (see [Access Control](#access-control)); they remain filename-addressable for admin download.
 - Signing tokens do not expire in the current schema or route logic.
 - There are no webhook callbacks to a patient-record system.
 - There is no multi-signer routing or reminder workflow.
@@ -244,7 +243,20 @@ Operational assumptions visible in code and config:
 - Uploaded template PDFs and generated signed PDFs must be persisted separately from the container filesystem.
 - `APP_URL` must match the externally reachable base URL for email signing links to work.
 - Resend is the only email provider implemented.
-- A reverse proxy, TLS termination, monitoring, and log retention are not defined in this repository. Backup and restore are handled externally and are documented in [Backup and Recovery](#backup-and-recovery).
+- A reverse proxy (Traefik, via Dokploy), TLS termination, and access control of the admin surface are configured in deployment rather than this repository; admin access control is documented in [Access Control](#access-control). Backup and restore are handled externally and are documented in [Backup and Recovery](#backup-and-recovery). Monitoring and log retention are not defined in this repository.
+
+## Access Control
+
+The app is intentionally public — external signers open their signing link (`/sign.html?token=…`) from an email — but the admin UI and admin API must not be reachable from the public internet. An `onRequest` gate (`src/server.ts`, logic in `src/ip-allowlist.ts`) hides every non-signer route, returning `404` so the admin surface is invisible rather than merely forbidden. This is network-level defence in depth; the shared admin bearer token remains the application-level auth (per-user accounts are still future work).
+
+**Public paths (open from anywhere):** `/health`, `/sign.html`, `/sign.js`, `/styles.css`, `/api/sign/:token`, `/api/sign/:token/complete`, `/uploads/*` — everything the signer flow needs.
+
+**Admin paths (everything else):**
+
+- Via the **public domain** (`Host` matching `APP_URL`, i.e. `contracts.docuseal.ink`): admin blocked unless the source IP is in `ADMIN_ALLOW_CIDR` (default none). This is how the Cardinal Framework reaches the admin API — it calls `https://contracts.docuseal.ink` server-side from the cardinal server (public IP `88.202.143.245`, allowlisted via a `docker-compose.override.yml` on the host), keeping the admin token off the browser.
+- Via the **tailnet** directly (`http://100.64.0.57:4321`, `Host` = the IP): admin allowed when the source IP is internal (the Tailscale CGNAT range `100.64.0.0/10`, RFC1918, loopback). This is the operator path for the admin UI and field-placement work.
+
+The gate keys off the `Host` header rather than the client IP alone: Docker port-mapping makes a direct tailnet client appear to the container as the bridge gateway (`172.x`), the same private range the reverse proxy connects from, so IP alone cannot separate "public via Traefik" from "direct via tailnet". Traefik routes on `Host`, so a public request always carries the public host. `trustProxy` is enabled so audit events record the real client IP. Denials are logged with the source IP and path.
 
 ## Backup and Recovery
 
@@ -278,5 +290,4 @@ For a full restore, recreate or reattach the three Dokploy volumes (`data`, `upl
 
 - Clinical production compliance requirements are not described in this repository.
 - The intended production domain and TLS/proxy topology are not described in this repository.
-- Whether signed PDFs should remain publicly reachable under `/storage/` or move behind admin authorization is not specified in this repository.
 - Whether audit events should survive permanent contract deletion is not specified in this repository.
