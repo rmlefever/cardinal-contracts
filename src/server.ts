@@ -9,6 +9,7 @@ import path from 'node:path';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { config } from './config.js';
+import { ipAllowed, isPublicPath } from './ip-allowlist.js';
 import { audit } from './audit.js';
 import { db, fieldsFor, type ClinicRecord, type ContractRecord, type TemplateRecord, type TemplateField } from './db.js';
 import { sendSigningEmail } from './email.js';
@@ -17,13 +18,24 @@ import { stampSignedPdf } from './pdf.js';
 fs.mkdirSync(config.uploadDir, { recursive: true });
 fs.mkdirSync(config.storageDir, { recursive: true });
 
-const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024 });
+const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024, trustProxy: true });
 await app.register(cors, { origin: true, credentials: true });
 await app.register(cookie);
 await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 await app.register(fastifyStatic, { root: path.resolve('public'), prefix: '/' });
 await app.register(fastifyStatic, { root: config.uploadDir, prefix: '/uploads/', decorateReply: false });
 await app.register(fastifyStatic, { root: config.storageDir, prefix: '/storage/', decorateReply: false });
+
+// Admin-surface gate: hide every non-signer route from IPs outside the allowlist.
+// Signer routes (in `isPublicPath`) stay public; everything else requires a
+// tailnet/allowlisted source IP. Denials return 404 so the admin surface is
+// invisible (not just forbidden) to the public internet.
+app.addHook('onRequest', async (request, reply) => {
+  if (isPublicPath(request.url)) return;
+  if (ipAllowed(request.ip, config.adminAllowCidrs)) return;
+  request.log.info({ ip: request.ip, path: request.url.split('?')[0] }, 'admin route blocked: source ip not in allowlist');
+  return reply.code(404).send();
+});
 
 function requireAdmin(request: { headers: Record<string, unknown> }) {
   const header = String(request.headers.authorization ?? '');
